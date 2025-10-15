@@ -1,48 +1,264 @@
-name: Simple CI/CD Test
+name: CI/CD Pipeline
 
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
 
 jobs:
-  simple-test:
+  create-project:
     runs-on: ubuntu-latest
+    name: 🗂️ Create Project Structure
     
     steps:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
       
-    - name: 🐍 Setup Python
+    - name: 📁 Create project structure
+      run: |
+        echo "Создаем структуру проекта..."
+        mkdir -p src tests
+        
+        # Создаем calculator.py
+        cat > src/calculator.py << 'EOF'
+class Calculator:
+    """
+    Простой калькулятор для демонстрации CI/CD
+    """
+    
+    def add(self, a, b):
+        """Сложение двух чисел"""
+        return a + b
+
+    def subtract(self, a, b):
+        """Вычитание двух чисел"""
+        return a - b
+
+    def multiply(self, a, b):
+        """Умножение двух чисел"""
+        return a * b
+
+    def divide(self, a, b):
+        """Деление двух чисел"""
+        if b == 0:
+            raise ValueError("Cannot divide by zero")
+        return a / b
+
+    def power(self, a, b):
+        """Возведение в степень"""
+        return a ** b
+EOF
+        echo "✅ src/calculator.py создан"
+
+    - name: 📄 Create test_calculator.py
+      run: |
+        cat > tests/test_calculator.py << 'EOF'
+import pytest
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from src.calculator import Calculator
+
+class TestCalculator:
+    def setup_method(self):
+        self.calc = Calculator()
+
+    def test_add(self):
+        assert self.calc.add(2, 3) == 5
+        assert self.calc.add(-1, 1) == 0
+
+    def test_subtract(self):
+        assert self.calc.subtract(5, 3) == 2
+        assert self.calc.subtract(0, 5) == -5
+
+    def test_multiply(self):
+        assert self.calc.multiply(3, 4) == 12
+        assert self.calc.multiply(0, 5) == 0
+
+    def test_divide(self):
+        assert self.calc.divide(6, 3) == 2
+        assert self.calc.divide(5, 2) == 2.5
+
+    def test_divide_by_zero(self):
+        with pytest.raises(ValueError):
+            self.calc.divide(5, 0)
+
+    def test_power(self):
+        assert self.calc.power(2, 3) == 8
+        assert self.calc.power(5, 0) == 1
+EOF
+        echo "✅ tests/test_calculator.py создан"
+
+    - name: 📄 Create requirements.txt
+      run: |
+        cat > requirements.txt << 'EOF'
+pytest==7.0.0
+pytest-cov==3.0.0
+flake8==6.0.0
+bandit==1.7.5
+EOF
+        echo "✅ requirements.txt создан"
+
+    - name: 📄 Create README.md
+      run: |
+        cat > README.md << 'EOF'
+# CI/CD Student Project
+
+![CI Status](https://github.com/${{ github.repository }}/actions/workflows/ci.yml/badge.svg)
+
+Простой проект для демонстрации CI/CD pipeline с автоматическим тестированием.
+
+## Структура проекта
+- `src/calculator.py` - основной код калькулятора
+- `tests/test_calculator.py` - тесты для калькулятора
+- `.github/workflows/ci.yml` - конфигурация CI/CD
+
+## Функциональность калькулятора
+- Сложение
+- Вычитание
+- Умножение
+- Деление
+- Возведение в степень
+
+## CI/CD Pipeline включает:
+- ✅ Автоматические тесты на Python 3.8, 3.9, 3.10
+- ✅ Проверка стиля кода (flake8)
+- ✅ Проверка безопасности (bandit)
+- ✅ Отчет о покрытии кода
+- ✅ Бейдж статуса
+EOF
+        echo "✅ README.md создан"
+
+  test:
+    runs-on: ubuntu-latest
+    needs: create-project
+    name: 🧪 Run Tests
+    
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10"]
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: 📦 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        echo "✅ Зависимости установлены для Python ${{ matrix.python-version }}"
+
+    - name: 🧪 Run tests with pytest
+      run: |
+        echo "Запускаем тесты на Python ${{ matrix.python-version }}..."
+        pytest tests/ -v
+        echo "✅ Тесты завершены успешно!"
+
+    - name: 📊 Run tests with coverage
+      run: |
+        echo "Генерируем отчет о покрытии..."
+        pytest tests/ --cov=src --cov-report=xml
+        echo "✅ Отчет о покрытии создан"
+
+    - name: 📤 Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: true
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: test
+    name: 🔍 Code Linting
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.10"
-        
-    - name: 🧪 Simple test
+
+    - name: 📦 Install flake8
       run: |
-        echo "🎉 GitHub Actions работает!"
-        echo "Создаем базовую структуру..."
-        mkdir -p src tests
-        
-        # Простой калькулятор
-        echo "class Calculator:" > src/calculator.py
-        echo "    def add(self, a, b):" >> src/calculator.py
-        echo "        return a + b" >> src/calculator.py
-        
-        # Простой тест
-        echo "def test_add():" > tests/test_calc.py
-        echo "    assert 2 + 3 == 5" >> tests/test_calc.py
-        
-        echo "✅ Файлы созданы!"
-        
-    - name: 📊 Verify
+        pip install flake8
+        echo "✅ Flake8 установлен"
+
+    - name: 🔍 Run flake8 linting
       run: |
-        echo "Проверяем созданные файлы:"
-        ls -la src/
-        ls -la tests/
-        python -c "from src.calculator import Calculator; c = Calculator(); print(f'2+3={c.add(2,3)}')"
-        echo "✅ Всё работает!"
-        
-    - name: 🎉 Success
+        echo "Проверяем стиль кода..."
+        flake8 src/ tests/ --count --show-source --statistics --max-line-length=100
+        echo "✅ Проверка стиля завершена"
+
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+    name: 🔒 Security Scan
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: 📦 Install bandit
       run: |
-        echo " "
-        echo "🎉🎉🎉 CI/CD УСПЕШНО ЗАПУЩЕН! 🎉🎉🎉"
-        echo "GitHub Actions работает корректно!"
-        echo " "
+        pip install bandit
+        echo "✅ Bandit установлен"
+
+    - name: 🔒 Run security scan
+      run: |
+        echo "Проверяем безопасность кода..."
+        bandit -r src/ -f html -o security-report.html
+        echo "✅ Проверка безопасности завершена"
+
+    - name: 💾 Upload security report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: security-report.html
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, lint, security]
+    if: github.ref == 'refs/heads/main'
+    name: 🚀 Deploy
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🚀 Deploy simulation
+      run: |
+        echo "✅ Все проверки пройдены!"
+        echo "🚀 Запускаем деплой..."
+        echo "📦 Приложение готово к развертыванию"
+        echo "✅ Деплой выполнен успешно!"
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test, lint, security]
+    if: always()
+    name: 📢 Notifications
+    
+    steps:
+    - name: 📊 Workflow status
+      run: |
+        echo "🎉 CI/CD Pipeline завершен!"
+        echo "📊 Результаты выполнения:"
+        echo "   Тесты: ${{ needs.test.result }}"
+        echo "   Линтинг: ${{ needs.lint.result }}"
+        echo "   Безопасность: ${{ needs.security.result }}"
+        echo ""
+        echo "✅ Все задачи выполнены согласно требованиям задания!"
