@@ -1,0 +1,131 @@
+name: CI/CD Success Pipeline
+
+on: 
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  setup-project:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🗂️ Create Python project
+      run: |
+        echo "Создаем структуру проекта..."
+        mkdir -p src tests
+        
+        # Calculator class
+        cat > src/calculator.py << 'EOF'
+class Calculator:
+    def add(self, a, b):
+        return a + b
+        
+    def subtract(self, a, b):
+        return a - b
+        
+    def multiply(self, a, b):
+        return a * b
+        
+    def divide(self, a, b):
+        if b == 0:
+            raise ValueError("Cannot divide by zero")
+        return a / b
+EOF
+
+        # Tests
+        cat > tests/test_calculator.py << 'EOF'
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from src.calculator import Calculator
+
+def test_add():
+    calc = Calculator()
+    assert calc.add(2, 3) == 5
+
+def test_subtract():
+    calc = Calculator()
+    assert calc.subtract(5, 3) == 2
+
+def test_multiply():
+    calc = Calculator()
+    assert calc.multiply(3, 4) == 12
+
+def test_divide():
+    calc = Calculator()
+    assert calc.divide(6, 3) == 2
+
+def test_divide_by_zero():
+    calc = Calculator()
+    try:
+        calc.divide(5, 0)
+        assert False
+    except ValueError:
+        assert True
+EOF
+
+        # Requirements
+        echo "pytest" > requirements.txt
+        
+        echo "✅ Проект создан!"
+
+  run-tests:
+    runs-on: ubuntu-latest
+    needs: setup-project
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        
+    - name: 📦 Install dependencies
+      run: |
+        pip install -r requirements.txt
+        echo "✅ Зависимости установлены"
+        
+    - name: 🧪 Run tests
+      run: |
+        echo "Запускаем тесты..."
+        python -c "from src.calculator import Calculator; print('✅ Импорт работает')"
+        pytest tests/ -v
+        echo "✅ Все тесты прошли!"
+
+  quality-checks:
+    runs-on: ubuntu-latest
+    needs: run-tests
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔍 Code quality
+      run: |
+        echo "Проверяем качество кода..."
+        python -m py_compile src/calculator.py
+        python -m py_compile tests/test_calculator.py
+        echo "✅ Код компилируется без ошибок"
+        
+    - name: 📊 Results
+      run: |
+        echo " "
+        echo "🎉🎉🎉 CI/CD PIPELINE УСПЕШНО ВЫПОЛНЕН! 🎉🎉🎉"
+        echo " "
+        echo "✅ Проект создан автоматически"
+        echo "✅ Тесты выполнены успешно"
+        echo "✅ Качество кода проверено"
+        echo "✅ GitHub Actions работает!"
+        echo " "
+        echo "Созданные файлы:"
+        echo "📁 src/calculator.py"
+        echo "📁 tests/test_calculator.py" 
+        echo "📄 requirements.txt"
+        echo " "
